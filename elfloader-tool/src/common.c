@@ -93,7 +93,11 @@ static void unpack_elf_to_paddr(
     word_t phys_virt_offset;
 
     /* Get size of the image. */
-    elf_getMemoryBounds(elf, 0, &min_vaddr, &max_vaddr);
+    if (1 != elf_getMemoryBounds(elf, 0, &min_vaddr, &max_vaddr)) {
+        printf("Could not get image size!\n");
+        abort();
+    }
+
     image_size = (size_t)(max_vaddr - min_vaddr);
     phys_virt_offset = dest_paddr - (paddr_t)min_vaddr;
 
@@ -322,12 +326,16 @@ void load_images(
         printf("No kernel image present in archive!\n");
         abort();
     }
-    if (elf_checkFile(kernel_elf)) {
+    if (0 != elf_checkFile(kernel_elf)) {
         printf("Kernel image not a valid ELF file!\n");
         abort();
     }
 
-    elf_getMemoryBounds(kernel_elf, 1, &kernel_phys_start, &kernel_phys_end);
+    /* get pyhsical memory bounds */
+    if (1 != elf_getMemoryBounds(kernel_elf, 1, &kernel_phys_start, &kernel_phys_end)) {
+        printf("could not get kernel memory bounds!\n");
+        abort();
+    }
 
     void *dtb = NULL;
 
