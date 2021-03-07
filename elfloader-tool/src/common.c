@@ -308,7 +308,7 @@ void load_images(
     unsigned int *num_images,
     void *bootloader_dtb,
     void **chosen_dtb,
-    uint32_t *chosen_dtb_size)
+    size_t *chosen_dtb_size)
 {
     uint64_t kernel_phys_start, kernel_phys_end;
     uintptr_t dtb_phys_start, dtb_phys_end;
@@ -375,24 +375,25 @@ void load_images(
         /* keep it page aligned */
         next_phys_addr = dtb_phys_start = ROUND_UP(kernel_phys_end, PAGE_BITS);
 
-        *chosen_dtb_size = fdt_size(dtb);
-        if (!*chosen_dtb_size) {
+        size_t dtb_size = (size_t)fdt_size(dtb);
+        if (0 == dtb_size) {
             printf("Invalid device tree blob supplied!\n");
             abort();
         }
 
         /* Make sure this is a sane thing to do */
         ensure_phys_range_valid("DTB", next_phys_addr,
-                                next_phys_addr + *chosen_dtb_size);
+                                next_phys_addr + dtb_size);
 
-        memmove((void *)next_phys_addr, dtb, *chosen_dtb_size);
-        next_phys_addr += *chosen_dtb_size;
+        memmove((void *)next_phys_addr, dtb, dtb_size);
+        next_phys_addr += dtb_size;
         next_phys_addr = ROUND_UP(next_phys_addr, PAGE_BITS);
         dtb_phys_end = next_phys_addr;
 
         printf("Loaded DTB from %p.\n", dtb);
         printf("   paddr=[%p..%p]\n", dtb_phys_start, dtb_phys_end - 1);
         *chosen_dtb = (void *)dtb_phys_start;
+        *chosen_dtb_size = dtb_size;
     } else {
         next_phys_addr = ROUND_UP(kernel_phys_end, PAGE_BITS);
     }
