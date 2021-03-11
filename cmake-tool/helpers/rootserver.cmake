@@ -104,6 +104,7 @@ function(DeclareRootserver rootservername)
 
                 file(GLOB_RECURSE deps)
                 set(OPENSBI_BINARY_DIR "${CMAKE_BINARY_DIR}/opensbi")
+                set(OPENSBI_PLAYLOAD "${OPENSBI_BINARY_DIR}/payload")
                 set(
                     OPENSBI_FW_PAYLOAD_ELF
                     "${OPENSBI_BINARY_DIR}/platform/${KernelOpenSBIPlatform}/firmware/fw_payload.elf"
@@ -115,14 +116,15 @@ function(DeclareRootserver rootservername)
                         make -s -C "${OPENSBI_PATH}" O="${OPENSBI_BINARY_DIR}" clean
                     COMMAND
                         ${CMAKE_OBJCOPY} -O binary "${elf_target_file}"
-                        "${OPENSBI_BINARY_DIR}/payload"
+                        ""${OPENSBI_PLAYLOAD}""
+                        "${OPENSBI_PLAYLOAD}"
                     COMMAND
                         PLATFORM_RISCV_XLEN=${mode} CROSS_COMPILE=${CROSS_COMPILER_PREFIX} make -C
                         "${OPENSBI_PATH}" O="${OPENSBI_BINARY_DIR}" 
                         CROSS_COMPILE=${CROSS_COMPILER_PREFIX}
                         PLATFORM="${KernelOpenSBIPlatform}"
                         PLATFORM_RISCV_XLEN=${mode}
-                        FW_PAYLOAD_PATH="${OPENSBI_BINARY_DIR}/payload"
+                        FW_PAYLOAD_PATH="${OPENSBI_PLAYLOAD}"
                     DEPENDS "${elf_target_file}" elfloader ${USES_TERMINAL_DEBUG}
                 )
                 set(elf_target_file "${OPENSBI_FW_PAYLOAD_ELF}")
