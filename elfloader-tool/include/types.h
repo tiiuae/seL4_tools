@@ -6,28 +6,80 @@
 
 #pragma once
 
-typedef signed char int8_t;
-typedef short int16_t;
-typedef int int32_t;
-typedef long long int64_t;
+/* helper macro that ensure the passed macro gets evaluated first before the
+ * concatenation happens */
+#define _macro_make_string_helper(x)    # x
+#define _macro_make_string(x)           _macro_make_string_helper(x)
 
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long uint64_t;
+#define _macro_concat2_helper(x,y)      x ## y
+#define _macro_concat2(x,y)             _macro_concat2_helper(x,y)
+
+#define _macro_concat3_helper(x,y,z)    x ## y ## z
+#define _macro_concat3(x,y,z)           _macro_concat3_helper(x,y,z)
+
+
+typedef signed char     int8_t;
+typedef unsigned char   uint8_t;
+
+typedef signed short    int16_t;
+typedef unsigned short  uint16_t;
+
+typedef signed int      int32_t;
+typedef unsigned int    uint32_t;
+
 
 #if defined(__KERNEL_32__)
-typedef uint32_t uintptr_t;
-typedef uint32_t size_t;
-typedef uint32_t word_t;
-#define BYTE_PER_WORD   4
+
+#define _int64_type         long long
+#define _int64_type_fmt     ll  // for printf() formatting and integer suffix
+
 #elif defined(__KERNEL_64__)
-typedef uint64_t uintptr_t;
-typedef uint64_t size_t;
-typedef uint64_t word_t;
-#define BYTE_PER_WORD   8
+
+#define _int64_type         long
+#define _int64_type_fmt     l  // for printf() formatting and integer suffix
+
+#else
+#error expecting either __KERNEL_32__ or __KERNEL_64__ to be defined
 #endif
 
-#define UINT32_MAX    (0xffffffff)
-#define UINT64_MAX    (0xffffffffffffffffull)
+typedef signed _int64_type      int64_t;
+typedef unsigned _int64_type    uint64_t;
 
+/* helper macros to define 64-bit constants */
+#define INT64_C(v)      _macro_concat2(v, _int64_type_fmt)
+#define UINT64_C(v)     _macro_concat3(v, _int64_type_fmt, u)
+
+#define UINT32_MAX      (0xffffffff)
+#define UINT64_MAX      UINT64_C(0xffffffffffffffff)
+
+/* printf() format specifiers for 64-bit values*/
+#define PRId64  _macro_make_string(_macro_concat2(_int64_type_fmt, d))
+#define PRIi64  _macro_make_string(_macro_concat2(_int64_type_fmt, i))
+#define PRIu64  _macro_make_string(_macro_concat2(_int64_type_fmt, u))
+#define PRIx64  _macro_make_string(_macro_concat2(_int64_type_fmt, x))
+
+#if defined(__KERNEL_32__)
+typedef uint32_t    uintptr_t;
+#elif defined(__KERNEL_64__)
+typedef uint64_t    uintptr_t;
+#else
+#error expecting either __KERNEL_32__ or __KERNEL_64__ to be defined
+#endif
+
+typedef uintptr_t   size_t;
+
+typedef int64_t     intmax_t;
+typedef uint64_t    uintmax_t;
+
+
+#if defined(__KERNEL_32__)
+typedef uint32_t    word_t;
+#define PRI_word    "u"
+#elif defined(__KERNEL_64__)
+typedef uint64_t    word_t;
+#define PRI_word    PRIu64
+#else
+#error expecting either __KERNEL_32__ or __KERNEL_64__ to be defined
+#endif
+
+#define BYTE_PER_WORD   sizeof(word_t)

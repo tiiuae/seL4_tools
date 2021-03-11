@@ -7,7 +7,6 @@
 
 #include <elfloader_common.h>
 #include <types.h>
-//#include <linux/types.h>
 
 #define SBI_SET_TIMER 0
 #define SBI_CONSOLE_PUTCHAR 1
@@ -38,6 +37,9 @@
 
 static inline void sbi_console_putchar(int ch)
 {
+    /* OpenSBI implements a generic console, it hides any UART specific details
+     * like writing a '\r' (CR) before a '\n' (LF).
+     */
     SBI_CALL_1(SBI_CONSOLE_PUTCHAR, ch);
 }
 

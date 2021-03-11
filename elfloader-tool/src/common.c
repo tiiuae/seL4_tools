@@ -44,8 +44,11 @@ void clear_bss(void)
 #define KEEP_HEADERS_SIZE BIT(PAGE_BITS)
 
 /* Determine if two intervals overlap. */
-static int regions_overlap(uintptr_t startA, uintptr_t endA,
-                           uintptr_t startB, uintptr_t endB)
+static int regions_overlap(
+    uintptr_t startA,
+    uintptr_t endA,
+    uintptr_t startB,
+    uintptr_t endB)
 {
     if (endA < startB) {
         return 0;
@@ -62,8 +65,10 @@ static int regions_overlap(uintptr_t startA, uintptr_t endA,
  * We abort if the destination physical range overlaps us, or if it
  * goes outside the bounds of memory.
  */
-static void ensure_phys_range_valid(char const *const name, paddr_t paddr_min,
-                                    paddr_t paddr_max)
+static void ensure_phys_range_valid(
+    char const *const name,
+    paddr_t paddr_min,
+    paddr_t paddr_max)
 {
     /*
      * Ensure that the physical load address of the object we're loading (called
@@ -78,16 +83,21 @@ static void ensure_phys_range_valid(char const *const name, paddr_t paddr_min,
 /*
  * Unpack an ELF file to the given physical address.
  */
-static void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
+static void unpack_elf_to_paddr(
+    void *elf,
+    paddr_t dest_paddr)
 {
-    uint16_t i;
     uint64_t min_vaddr, max_vaddr;
     size_t image_size;
 
     word_t phys_virt_offset;
 
     /* Get size of the image. */
-    elf_getMemoryBounds(elf, 0, &min_vaddr, &max_vaddr);
+    if (1 != elf_getMemoryBounds(elf, 0, &min_vaddr, &max_vaddr)) {
+        printf("Could not get image size!\n");
+        abort();
+    }
+
     image_size = (size_t)(max_vaddr - min_vaddr);
     phys_virt_offset = dest_paddr - (paddr_t)min_vaddr;
 
@@ -95,7 +105,7 @@ static void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
     memset((char *)dest_paddr, 0, image_size);
 
     /* Load each segment in the ELF file. */
-    for (i = 0; i < elf_getNumProgramHeaders(elf); i++) {
+    for (unsigned int i = 0; i < elf_getNumProgramHeaders(elf); i++) {
         vaddr_t dest_vaddr;
         size_t data_size, data_offset;
 
@@ -115,7 +125,10 @@ static void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
     }
 }
 
-static size_t rounded_image_size(void *elf, uint64_t *min_vaddr, uint64_t *max_vaddr)
+static size_t rounded_image_size(
+    void *elf,
+    uint64_t *min_vaddr,
+    uint64_t *max_vaddr)
 {
     elf_getMemoryBounds(elf, 0, min_vaddr, max_vaddr);
     *max_vaddr = ROUND_UP(*max_vaddr, PAGE_BITS);
@@ -127,10 +140,14 @@ static size_t rounded_image_size(void *elf, uint64_t *min_vaddr, uint64_t *max_v
  *
  * Return the byte past the last byte of the physical address used.
  */
-static paddr_t load_elf(const char *name, void *elf, paddr_t dest_paddr,
-                        struct image_info *info, int keep_headers,
-                        __attribute__((unused)) unsigned long size,
-                        __attribute__((unused)) const char *hash)
+static paddr_t load_elf(
+    const char *name,
+    void *elf,
+    paddr_t dest_paddr,
+    struct image_info *info,
+    int keep_headers,
+    __attribute__((unused)) unsigned long size,
+    __attribute__((unused)) const char *hash)
 {
     uint64_t min_vaddr, max_vaddr;
     /* Fetch image info. */
@@ -157,7 +174,9 @@ static paddr_t load_elf(const char *name, void *elf, paddr_t dest_paddr,
     void *file_hash = cpio_get_file(_archive_start, cpio_len, (const char *)hash, &unused);
     uint8_t *print_hash_pointer = (uint8_t *)file_hash;
 
-    /* If the file hash doesn't have a pointer, the file doesn't exist, so we cannot confirm the file is what we expect. Abort */
+    /* If the file hash doesn't have a pointer, the file doesn't exist, so we
+     * cannot confirm the file is what we expect. Abort
+     */
     if (file_hash == NULL) {
         printf("Cannot compare hashes for %s, expected hash, %s, doesn't exist\n", name, hash);
         abort();
@@ -196,9 +215,9 @@ static paddr_t load_elf(const char *name, void *elf, paddr_t dest_paddr,
 
     /* Print diagnostics. */
     printf("ELF-loading image '%s'\n", name);
-    printf("  paddr=[%lx..%lx]\n", dest_paddr, dest_paddr + image_size - 1);
-    printf("  vaddr=[%lx..%lx]\n", (vaddr_t)min_vaddr, (vaddr_t)max_vaddr - 1);
-    printf("  virt_entry=%lx\n", (vaddr_t)elf_getEntryPoint(elf));
+    printf("  paddr=[%p..%p]\n", dest_paddr, dest_paddr + image_size - 1);
+    printf("  vaddr=[%p..%p]\n", (vaddr_t)min_vaddr, (vaddr_t)max_vaddr - 1);
+    printf("  virt_entry=%p\n", (vaddr_t)elf_getEntryPoint(elf));
 
     /* Ensure the ELF file is valid. */
     if (elf_checkFile(elf) != 0) {
@@ -282,11 +301,15 @@ static paddr_t load_elf(const char *name, void *elf, paddr_t dest_paddr,
  *
  *  We attempt to check for some of these, but some may go unnoticed.
  */
-void load_images(struct image_info *kernel_info, struct image_info *user_info,
-                 int max_user_images, int *num_images, void *bootloader_dtb, void **chosen_dtb,
-                 uint32_t *chosen_dtb_size)
+void load_images(
+    struct image_info *kernel_info,
+    struct image_info *user_info,
+    unsigned int max_user_images,
+    unsigned int *num_images,
+    void *bootloader_dtb,
+    void **chosen_dtb,
+    size_t *chosen_dtb_size)
 {
-    int i;
     uint64_t kernel_phys_start, kernel_phys_end;
     uintptr_t dtb_phys_start, dtb_phys_end;
     paddr_t next_phys_addr;
@@ -297,20 +320,27 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 
     /* Load kernel. */
     unsigned long cpio_len = _archive_start_end - _archive_start;
-    void *kernel_elf = cpio_get_file(_archive_start, cpio_len, "kernel.elf", &kernel_filesize);
+    void *kernel_elf = cpio_get_file(_archive_start, cpio_len, "kernel.elf",
+                                     &kernel_filesize);
     if (kernel_elf == NULL) {
         printf("No kernel image present in archive!\n");
         abort();
     }
-    if (elf_checkFile(kernel_elf)) {
+    if (0 != elf_checkFile(kernel_elf)) {
         printf("Kernel image not a valid ELF file!\n");
         abort();
     }
 
-    elf_getMemoryBounds(kernel_elf, 1, &kernel_phys_start, &kernel_phys_end);
+    /* get pyhsical memory bounds */
+    if (1 != elf_getMemoryBounds(kernel_elf, 1, &kernel_phys_start, &kernel_phys_end)) {
+        printf("could not get kernel memory bounds!\n");
+        abort();
+    }
 
     void *dtb = NULL;
+
 #ifdef CONFIG_ELFLOADER_INCLUDE_DTB
+
     if (chosen_dtb) {
         printf("Looking for DTB in CPIO archive...");
         /*
@@ -328,10 +358,13 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
             printf("found at %p.\n", dtb);
         }
     }
-#endif
+
+#endif /* CONFIG_ELFLOADER_INCLUDE_DTB */
 
     if (chosen_dtb && !dtb && bootloader_dtb) {
-        /* Use the bootloader's DTB if we are not using the DTB in the CPIO archive. */
+        /* Use the bootloader's DTB if we are not using the DTB in the CPIO
+         * archive.
+         */
         dtb = bootloader_dtb;
     }
 
@@ -342,38 +375,48 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
         /* keep it page aligned */
         next_phys_addr = dtb_phys_start = ROUND_UP(kernel_phys_end, PAGE_BITS);
 
-        *chosen_dtb_size = fdt_size(dtb);
-        if (!*chosen_dtb_size) {
+        size_t dtb_size = (size_t)fdt_size(dtb);
+        if (0 == dtb_size) {
             printf("Invalid device tree blob supplied!\n");
             abort();
         }
 
         /* Make sure this is a sane thing to do */
         ensure_phys_range_valid("DTB", next_phys_addr,
-                                next_phys_addr + *chosen_dtb_size);
+                                next_phys_addr + dtb_size);
 
-        memmove((void *)next_phys_addr, dtb, *chosen_dtb_size);
-        next_phys_addr += *chosen_dtb_size;
+        memmove((void *)next_phys_addr, dtb, dtb_size);
+        next_phys_addr += dtb_size;
         next_phys_addr = ROUND_UP(next_phys_addr, PAGE_BITS);
         dtb_phys_end = next_phys_addr;
 
         printf("Loaded DTB from %p.\n", dtb);
-        printf("   paddr=[%lx..%lx]\n", dtb_phys_start, dtb_phys_end - 1);
+        printf("   paddr=[%p..%p]\n", dtb_phys_start, dtb_phys_end - 1);
         *chosen_dtb = (void *)dtb_phys_start;
+        *chosen_dtb_size = dtb_size;
     } else {
         next_phys_addr = ROUND_UP(kernel_phys_end, PAGE_BITS);
     }
-    load_elf("kernel", kernel_elf,
-             (paddr_t)kernel_phys_start, kernel_info, 0, kernel_filesize, "kernel.bin");
+
+    /* Load the kernel */
+    load_elf(
+        "kernel",
+        kernel_elf,
+        (paddr_t)kernel_phys_start,
+        kernel_info,
+        0, // don't keep ELF headers
+        kernel_filesize,
+        "kernel.bin");
 
     /*
      * Load userspace images.
      *
      * We assume (and check) that the kernel is the first file in the archive,
      * that the DTB is the second if present,
-     * and then load the (n+user_elf_offset)'th file in the archive onto the (n)'th CPU.
+     * and then load the (n+user_elf_offset)'th file in the archive onto the
+     * (n)'th CPU.
      */
-    int user_elf_offset = 2;
+    unsigned int user_elf_offset = 2;
     cpio_get_entry(_archive_start, cpio_len, 0, &elf_filename, &unused);
     if (strcmp(elf_filename, "kernel.elf") != 0) {
         printf("Kernel image not first image in archive.\n");
@@ -389,37 +432,52 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
     }
 
 #ifdef CONFIG_ELFLOADER_ROOTSERVERS_LAST
-    /* work out the size of the user images - this corresponds to how much memory
-     * load_elf uses */
-    int total_user_image_size = 0;
-    for (i = 0; i < max_user_images; i++) {
-        void *user_elf = cpio_get_entry(_archive_start, cpio_len, i + user_elf_offset,
+
+    /* work out the size of the user images - this corresponds to how much
+     * memory load_elf uses */
+    unsigned int total_user_image_size = 0;
+    for (unsigned int i = 0; i < max_user_images; i++) {
+        void *user_elf = cpio_get_entry(_archive_start, cpio_len,
+                                        i + user_elf_offset,
                                         &elf_filename, &unused);
         uint64_t min_vaddr, max_vaddr;
-        total_user_image_size += rounded_image_size(user_elf, &min_vaddr, &max_vaddr);
+        total_user_image_size += rounded_image_size(user_elf, &min_vaddr,
+                                                    &max_vaddr);
 
         total_user_image_size += KEEP_HEADERS_SIZE;
     }
 
     /* work out where to place the user image */
 
-    next_phys_addr = ROUND_DOWN(memory_region[0].end, PAGE_BITS) - ROUND_UP(total_user_image_size, PAGE_BITS);
+    next_phys_addr = ROUND_DOWN(memory_region[0].end, PAGE_BITS)
+                     - ROUND_UP(total_user_image_size, PAGE_BITS);
+
 #endif /* CONFIG_ELFLOADER_ROOTSERVERS_LAST */
 
     *num_images = 0;
-    for (i = 0; i < max_user_images; i++) {
+    for (unsigned int i = 0; i < max_user_images; i++) {
         /* Fetch info about the next ELF file in the archive. */
-        void *user_elf = cpio_get_entry(_archive_start, cpio_len, i + user_elf_offset,
-                                        &elf_filename, &unused);
+        void *user_elf = cpio_get_entry(_archive_start,
+                                        cpio_len, i + user_elf_offset,
+                                        &elf_filename,
+                                        &unused);
         if (user_elf == NULL) {
             break;
         }
 
         /* Load the file into memory. */
-        next_phys_addr = load_elf(elf_filename, user_elf,
-                                  next_phys_addr, &user_info[*num_images], 1, unused, "app.bin");
+        next_phys_addr = load_elf(elf_filename,
+                                  user_elf,
+                                  next_phys_addr,
+                                  &user_info[*num_images],
+                                  1,  // keep ELF headers
+                                  unused,
+                                  "app.bin");
         *num_images = i + 1;
     }
 }
 
-void __attribute__((weak)) platform_init(void) {}
+void __attribute__((weak)) platform_init(void)
+{
+    /* nothing by default */
+}

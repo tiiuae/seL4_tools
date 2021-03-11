@@ -20,13 +20,17 @@
  * Function to process a simple character. "payload" may point
  * to arbitrary state needed by the "write_char" function.
  */
-typedef void write_char_fn(void *payload, int c);
+typedef void write_char_fn(
+    void *payload,
+    int c);
 
 /* Write a NUL-terminated string to the given 'write_char' function. */
-static void write_string(write_char_fn write_char, void *payload, const char *str)
+static void write_string(
+    write_char_fn write_char,
+    void *payload,
+    const char *str)
 {
-    int i;
-    for (i = 0; str[i] != 0; i++) {
+    for (unsigned int i = 0; str[i] != 0; i++) {
         write_char(payload, str[i]);
     }
 }
@@ -36,12 +40,15 @@ static void write_string(write_char_fn write_char, void *payload, const char *st
  *
  * We only support bases up to 16.
  */
-static void write_num(write_char_fn write_char, void *payload,
-                      int base, unsigned long n)
+static void write_num(
+    write_char_fn write_char,
+    void *payload,
+    unsigned int base,
+    uintmax_t n)
 {
     static const char hex[] = "0123456789abcdef";
     char buff[MAX_INT_BUFF_SIZE];
-    int k = MAX_INT_BUFF_SIZE - 1;
+    unsigned int k = MAX_INT_BUFF_SIZE - 1;
 
     /* Special case for "0". */
     if (n == 0) {
@@ -66,16 +73,15 @@ static void write_num(write_char_fn write_char, void *payload,
 /*
  * Print a printf-style string to the given write_char function.
  */
-static void vxprintf(write_char_fn write_char, void *payload,
-                     const char *format, va_list args)
+static void vxprintf(
+    write_char_fn write_char,
+    void *payload,
+    const char *format,
+    va_list args)
 {
-    int d, i;
-    char c, *s;
-    unsigned long p, ul;
     int escape_mode = 0;
-
     /* Iterate over the format list. */
-    for (i = 0; format[i] != 0; i++) {
+    for (unsigned int i = 0; format[i] != 0; i++) {
         /* Handle simple characters. */
         if (!escape_mode && format[i] != '%') {
             write_char(payload, format[i]);
@@ -114,51 +120,86 @@ static void vxprintf(write_char_fn write_char, void *payload,
 
         /* String. */
         case 's':
-            s = va_arg(args, char *);
-            write_string(write_char, payload, s);
+            write_string(write_char, payload, va_arg(args, char *));
             escape_mode = 0;
             break;
 
         /* Pointers. */
         case 'p':
-            p = va_arg(args, unsigned long);
-            write_num(write_char, payload, 16, p);
+            write_num(write_char, payload, 16, (uintptr_t)va_arg(args, void *));
             escape_mode = 0;
             break;
 
         /* Hex number. */
         case 'x':
-            d = va_arg(args, int);
-            write_num(write_char, payload, 16, d);
+            write_num(write_char, payload, 16, va_arg(args, int));
             escape_mode = 0;
             break;
 
         /* Decimal number. */
         case 'd':
         case 'u':
-            d = va_arg(args, int);
-            write_num(write_char, payload, 10, d);
+            write_num(write_char, payload, 10, va_arg(args, int));
             escape_mode = 0;
             break;
 
         /* Character. */
         case 'c':
-            c = va_arg(args, int);
-            write_char(payload, c);
+            write_char(payload, va_arg(args, int));
+            escape_mode = 0;
+            break;
+
+        /* size_t number. */
+        case 'z':
+            switch (format[++i]) {
+            case 'd':
+            case 'u':
+                write_num(write_char, payload, 10,
+                          va_arg(args, size_t));
+                break;
+
+            case 'x':
+                write_num(write_char, payload, 16,
+                          va_arg(args, size_t));
+                break;
+
+            default:
+                write_char(payload, '?');
+            }
             escape_mode = 0;
             break;
 
         /* Long number. */
         case 'l':
             switch (format[++i]) {
+            case 'd':
             case 'u':
-                ul = va_arg(args, unsigned long);
-                write_num(write_char, payload, 10, ul);
+                write_num(write_char, payload, 10,
+                          va_arg(args, unsigned long));
                 break;
 
             case 'x':
-                ul = va_arg(args, unsigned long);
-                write_num(write_char, payload, 16, ul);
+                write_num(write_char, payload, 16,
+                          va_arg(args, unsigned long));
+                break;
+
+            /* Long Long number. */
+            case 'l':
+                switch (format[++i]) {
+                case 'd':
+                case 'u':
+                    write_num(write_char, payload, 10,
+                              va_arg(args, unsigned long long));
+                    break;
+
+                case 'x':
+                    write_num(write_char, payload, 16,
+                              va_arg(args, unsigned long long));
+                    break;
+
+                default:
+                    write_char(payload, '?');
+                }
                 break;
 
             default:
@@ -180,30 +221,17 @@ static void vxprintf(write_char_fn write_char, void *payload,
  * Simple printf/puts implementation.
  */
 
-static void arch_write_char(void *num_chars_printed_ptr, int c)
+static void arch_write_char(
+    void *num_chars_printed_ptr,
+    int c)
 {
-    int *num_chars_printed = (int *)num_chars_printed_ptr;
-
-    /* For now, console output goes into a UART on every platform eventually
-     * and we write a '\r' (CR) before every '\n' (LF) unconditinally. If there
-     * will even be a console that works differently, we can still add a
-     * configuration flag that allows disabling this feature.
-     */
-    if (c == '\n') {
-        /* TODO: There is no "(*num_chars_printed)++;" here, as the CR char has
-         *       never been counted by any platform specific implementations in
-         *       the past. For now the behavior is kept, but it seem quite
-         *       wrong to hide this. Check if any code depends really on this
-         *       and consider counting the CR char also.
-         */
-        plat_console_putchar('\r');
-    }
-
-    (*num_chars_printed)++;
     plat_console_putchar(c);
+    *((int *)num_chars_printed_ptr) += 1;
 }
 
-int printf(const char *format, ...)
+int printf(
+    const char *format,
+    ...)
 {
     int n = 0;
     va_list args;
@@ -213,7 +241,8 @@ int printf(const char *format, ...)
     return n;
 }
 
-int puts(const char *str)
+int puts(
+    const char *str)
 {
     int n = 0;
     write_string(arch_write_char, &n, str);
@@ -230,14 +259,19 @@ struct sprintf_payload {
     int n;
 };
 
-static void sprintf_write_char(void *payload, int c)
+static void sprintf_write_char(
+    void *payload,
+    int c)
 {
     struct sprintf_payload *p = (struct sprintf_payload *)payload;
     p->buff[p->n] = c;
     p->n++;
 }
 
-int sprintf(char *buff, const char *format, ...)
+int sprintf(
+    char *buff,
+    const char *format,
+    ...)
 {
     struct sprintf_payload p = {buff, 0};
     va_list args;
