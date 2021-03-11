@@ -127,6 +127,8 @@ function(DeclareRootserver rootservername)
                         FW_PAYLOAD_PATH="${OPENSBI_PLAYLOAD}"
                     DEPENDS "${elf_target_file}" elfloader ${USES_TERMINAL_DEBUG}
                 )
+                # overwrite elf_target_file, it's no longer the ElfLoader but
+                # the OpenSBI ELF (which contains the ElfLoader as payload)
                 set(elf_target_file "${OPENSBI_FW_PAYLOAD_ELF}")
             endif()
         endif()
