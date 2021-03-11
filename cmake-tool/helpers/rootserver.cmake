@@ -118,8 +118,10 @@ function(DeclareRootserver rootservername)
                         "${OPENSBI_BINARY_DIR}/payload"
                     COMMAND
                         PLATFORM_RISCV_XLEN=${mode} CROSS_COMPILE=${CROSS_COMPILER_PREFIX} make -C
-                        "${OPENSBI_PATH}" O="${OPENSBI_BINARY_DIR}"
+                        "${OPENSBI_PATH}" O="${OPENSBI_BINARY_DIR}" 
+                        CROSS_COMPILE=${CROSS_COMPILER_PREFIX}
                         PLATFORM="${KernelOpenSBIPlatform}"
+                        PLATFORM_RISCV_XLEN=${mode}
                         FW_PAYLOAD_PATH="${OPENSBI_BINARY_DIR}/payload"
                     DEPENDS "${elf_target_file}" elfloader ${USES_TERMINAL_DEBUG}
                 )
