@@ -22,8 +22,7 @@ struct fdt_header {
     uint32_t size_dt_struct;
 };
 
-uint32_t be32_to_le(
-    uint32_t be)
+uint32_t be32_to_le(uint32_t be)
 {
     return ((be & 0xff) << 24) |
            ((be & 0xff00) << 8) |
@@ -31,10 +30,9 @@ uint32_t be32_to_le(
            ((be & 0xff000000) >> 24);
 }
 
-size_t fdt_size(
-    void const *fdt)
+uint32_t fdt_size(void *fdt)
 {
-    struct fdt_header const *hdr = fdt;
+    struct fdt_header *hdr = (struct fdt_header *)fdt;
 
     if (be32_to_le(hdr->magic) != FDT_MAGIC ||
         be32_to_le(hdr->last_comp_version) > FDT_MAX_VER) {

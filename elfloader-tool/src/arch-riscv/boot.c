@@ -12,7 +12,6 @@
 #include <elfloader.h>
 #include <abort.h>
 #include <cpio/cpio.h>
-#include <sbi.h>
 
 #define PT_LEVEL_1 1
 #define PT_LEVEL_2 2
@@ -60,20 +59,14 @@ char elfloader_stack_alloc[BIT(CONFIG_KERNEL_STACK_BITS)];
 
 /* first HART will initialise these */
 void *dtb = NULL;
-size_t dtb_size = 0;
+uint32_t dtb_size = 0;
 
-static int map_kernel_window(struct image_info *kernel_info)
+void map_kernel_window(struct image_info *kernel_info)
 {
     uint32_t index;
     unsigned long *lpt;
 
     /* Map the elfloader into the new address space */
-
-    if (!IS_ALIGNED((uintptr_t)_text, PT_LEVEL_2_BITS)) {
-        printf("ERROR: ELF Loader not properly aligned\n");
-        return -1;
-    }
-
     index = GET_PT_INDEX((uintptr_t)_text, PT_LEVEL_1);
 
 #if __riscv_xlen == 32
@@ -84,19 +77,17 @@ static int map_kernel_window(struct image_info *kernel_info)
     index = GET_PT_INDEX((uintptr_t)_text, PT_LEVEL_2);
 #endif
 
-    for (unsigned int page = 0; index < PTES_PER_PT; index++, page++) {
-        lpt[index] = PTE_CREATE_LEAF((uintptr_t)_text +
-                                     (page << PT_LEVEL_2_BITS));
+    if (IS_ALIGNED((uintptr_t)_text, PT_LEVEL_2_BITS)) {
+        for (int page = 0; index < PTES_PER_PT; index++, page++) {
+            lpt[index] = PTE_CREATE_LEAF((uintptr_t)_text +
+                                         (page << PT_LEVEL_2_BITS));
+        }
+    } else {
+        printf("Elfloader not properly aligned\n");
+        abort();
     }
 
     /* Map the kernel into the new address space */
-
-    if (!VIRT_PHYS_ALIGNED(kernel_info->virt_region_start,
-                           kernel_info->phys_region_start, PT_LEVEL_2_BITS)) {
-        printf("ERROR: Kernel not properly aligned\n");
-        return -1;
-    }
-
     index = GET_PT_INDEX(kernel_info->virt_region_start, PT_LEVEL_1);
 
 #if __riscv_xlen == 64
@@ -104,13 +95,16 @@ static int map_kernel_window(struct image_info *kernel_info)
     l1pt[index] = PTE_CREATE_NEXT((uintptr_t)l2pt);
     index = GET_PT_INDEX(kernel_info->virt_region_start, PT_LEVEL_2);
 #endif
-
-    for (unsigned int page = 0; index < PTES_PER_PT; index++, page++) {
-        lpt[index] = PTE_CREATE_LEAF(kernel_info->phys_region_start +
-                                     (page << PT_LEVEL_2_BITS));
+    if (VIRT_PHYS_ALIGNED(kernel_info->virt_region_start,
+                          kernel_info->phys_region_start, PT_LEVEL_2_BITS)) {
+        for (int page = 0; index < PTES_PER_PT; index++, page++) {
+            lpt[index] = PTE_CREATE_LEAF(kernel_info->phys_region_start +
+                                         (page << PT_LEVEL_2_BITS));
+        }
+    } else {
+        printf("Kernel not properly aligned\n");
+        abort();
     }
-
-    return 0;
 }
 
 #if CONFIG_PT_LEVELS == 2
@@ -123,25 +117,18 @@ uint64_t vm_mode = 0x9llu << 60;
 #error "Wrong PT level"
 #endif
 
-int hsm_exists = 0;
-
 #if CONFIG_MAX_NUM_NODES > 1
-
-extern void secondary_harts(unsigned long);
-
 int secondary_go = 0;
 int next_logical_core_id = 1;
 int mutex = 0;
 int core_ready[CONFIG_MAX_NUM_NODES] = { 0 };
 static void set_and_wait_for_ready(int hart_id, int core_id)
 {
-    /* Acquire lock to update core ready array */
     while (__atomic_exchange_n(&mutex, 1, __ATOMIC_ACQUIRE) != 0);
     printf("Hart ID %d core ID %d\n", hart_id, core_id);
     core_ready[core_id] = 1;
     __atomic_store_n(&mutex, 0, __ATOMIC_RELEASE);
 
-    /* Wait untill all cores are go */
     for (int i = 0; i < CONFIG_MAX_NUM_NODES; i++) {
         while (__atomic_load_n(&core_ready[i], __ATOMIC_RELAXED) == 0) ;
     }
@@ -170,55 +157,28 @@ static inline void enable_virtual_memory(void)
     ifence();
 }
 
-void main(UNUSED int hart_id, void *bootloader_dtb)
+int num_apps = 0;
+void main(UNUSED int hartid, void *bootloader_dtb)
 {
-    /* printing uses SBI, so there is no need to initialize any UART */
-    printf("ELF-loader started on (HART %d) (NODES %d)\n",
-           hart_id, CONFIG_MAX_NUM_NODES);
+    printf("ELF-loader started on (HART %d) (NODES %d)\n", hartid, CONFIG_MAX_NUM_NODES);
+
     printf("  paddr=[%p..%p]\n", _text, _end - 1);
-
     /* Unpack ELF images into memory. */
-    unsigned int num_apps = 0;
-    int ret = load_images(&kernel_info, &user_info, 1, &num_apps,
-                          bootloader_dtb, &dtb, &dtb_size);
-
-    if (0 != ret) {
-        printf("ERROR: image loading failed\n");
-        abort();
-    }
-
+    load_images(&kernel_info, &user_info, 1, &num_apps, bootloader_dtb, &dtb, &dtb_size);
     if (num_apps != 1) {
-        printf("ERROR: expected to load just 1 app, actually loaded %u apps\n",
-               num_apps);
+        printf("No user images loaded!\n");
         abort();
     }
 
-    ret = map_kernel_window(&kernel_info);
-    if (0 != ret) {
-        printf("ERROR: could not map kernel window\n");
-        abort();
-    }
+    map_kernel_window(&kernel_info);
 
     printf("Jumping to kernel-image entry point...\n\n");
 
 #if CONFIG_MAX_NUM_NODES > 1
-    while (__atomic_exchange_n(&mutex, 1, __ATOMIC_ACQUIRE) != 0);
-    printf("Main entry hart_id:%d\n", hart_id);
-    __atomic_store_n(&mutex, 0, __ATOMIC_RELEASE);
-
     /* Unleash secondary cores */
     __atomic_store_n(&secondary_go, 1, __ATOMIC_RELEASE);
-
-    /* Start all cores */
-    int i = 0;
-    while (i < CONFIG_MAX_NUM_NODES && hsm_exists) {
-        i++;
-        if (i != hart_id) {
-            sbi_hart_start(i, secondary_harts, i);
-        }
-    }
-
-    set_and_wait_for_ready(hart_id, 0);
+    /* Set that the current core is ready and wait for other cores */
+    set_and_wait_for_ready(hartid, 0);
 #endif
 
     enable_virtual_memory();
@@ -229,14 +189,13 @@ void main(UNUSED int hart_id, void *bootloader_dtb)
                                                   (paddr_t) dtb, dtb_size
 #if CONFIG_MAX_NUM_NODES > 1
                                                   ,
-                                                  hart_id,
+                                                  hartid,
                                                   0
 #endif
                                                  );
 
     /* We should never get here. */
-    printf("ERROR: Kernel returned back to the ELF Loader\n");
-    abort();
+    printf("Kernel returned back to the elf-loader.\n");
 }
 
 #if CONFIG_MAX_NUM_NODES > 1
@@ -245,23 +204,15 @@ void secondary_entry(int hart_id, int core_id)
 {
     while (__atomic_load_n(&secondary_go, __ATOMIC_ACQUIRE) == 0) ;
 
-    while (__atomic_exchange_n(&mutex, 1, __ATOMIC_ACQUIRE) != 0);
-    printf("Secondary entry hart_id:%d core_id:%d\n", hart_id, core_id);
-    __atomic_store_n(&mutex, 0, __ATOMIC_RELEASE);
-
     set_and_wait_for_ready(hart_id, core_id);
 
     enable_virtual_memory();
 
-
-    /* If adding or modifying these parameters you will need to update
-        the registers in head.S */
     ((init_riscv_kernel_t)kernel_info.virt_entry)(user_info.phys_region_start,
-                                                  user_info.phys_region_end,
-                                                  user_info.phys_virt_offset,
+                                                  user_info.phys_region_end, user_info.phys_virt_offset,
                                                   user_info.virt_entry,
-                                                  (paddr_t) dtb,
-                                                  dtb_size,
+                                                  (paddr_t) dtb, dtb_size
+                                                  ,
                                                   hart_id,
                                                   core_id
                                                  );

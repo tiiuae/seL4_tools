@@ -12,182 +12,163 @@
  * file is valid, < 0 if invalid.
  */
 
-int elf_checkFile(
-    void const *elfFile)
+int
+elf_checkFile(void *elfFile)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_checkFile(elfFile)
            : elf64_checkFile(elfFile);
 }
 
 /* Program Headers Access functions */
-uint16_t elf_getNumProgramHeaders(
-    void const *elfFile)
+uint16_t
+elf_getNumProgramHeaders(void *elfFile)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getNumProgramHeaders(elfFile)
            : elf64_getNumProgramHeaders(elfFile);
 }
 
-uint32_t elf_getProgramHeaderFlags(
-    void const *elfFile,
-    uint16_t ph)
+uint32_t
+elf_getProgramHeaderFlags(void *elfFile, uint16_t ph)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getProgramHeaderFlags(elfFile, ph)
            : elf64_getProgramHeaderFlags(elfFile, ph);
 }
 
-uint32_t elf_getProgramHeaderType(
-    void const *elfFile,
-    uint16_t ph)
+uint32_t
+elf_getProgramHeaderType(void *elfFile, uint16_t ph)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getProgramHeaderType(elfFile, ph)
            : elf64_getProgramHeaderType(elfFile, ph);
 }
 
-uint64_t elf_getProgramHeaderPaddr(
-    void const *elfFile,
-    uint16_t ph)
+uint64_t
+elf_getProgramHeaderPaddr(void *elfFile, uint16_t ph)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getProgramHeaderPaddr(elfFile, ph)
            : elf64_getProgramHeaderPaddr(elfFile, ph);
 }
 
-uint64_t elf_getProgramHeaderVaddr(
-    void const *elfFile,
-    uint16_t ph)
+uint64_t
+elf_getProgramHeaderVaddr(void *elfFile, uint16_t ph)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getProgramHeaderVaddr(elfFile, ph)
            : elf64_getProgramHeaderVaddr(elfFile, ph);
 }
 
-uint64_t elf_getProgramHeaderMemorySize(
-    void const *elfFile,
-    uint16_t ph)
+uint64_t
+elf_getProgramHeaderMemorySize(void *elfFile, uint16_t ph)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getProgramHeaderMemorySize(elfFile, ph)
            : elf64_getProgramHeaderMemorySize(elfFile, ph);
 }
 
-uint64_t elf_getProgramHeaderFileSize(
-    void const *elfFile,
-    uint16_t ph)
+uint64_t
+elf_getProgramHeaderFileSize(void *elfFile, uint16_t ph)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getProgramHeaderFileSize(elfFile, ph)
            : elf64_getProgramHeaderFileSize(elfFile, ph);
 }
 
-uint64_t elf_getProgramHeaderOffset(
-    void const *elfFile,
-    uint16_t ph)
+uint64_t
+elf_getProgramHeaderOffset(void *elfFile, uint16_t ph)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getProgramHeaderOffset(elfFile, ph)
            : elf64_getProgramHeaderOffset(elfFile, ph);
 }
 
-char const *elf_getSegmentStringTable(
-    void const *elfFile)
+char *
+elf_getSegmentStringTable(void *elfFile)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSegmentStringTable(elfFile)
            : elf64_getSegmentStringTable(elfFile);
 }
 
-char const *elf_getStringTable(
-    void const *elfFile,
-    int string_segment)
+char *
+elf_getStringTable(void *elfFile, int string_segment)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getStringTable(elfFile)
            : elf64_getStringTable(elfFile, string_segment);
 }
 
-unsigned elf_getNumSections(
-    void const *elfFile)
+unsigned
+elf_getNumSections(void *elfFile)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getNumSections(elfFile)
            : elf64_getNumSections(elfFile);
 }
 
-char const *elf_getSectionName(
-    void const *elfFile,
-    int i)
+char *
+elf_getSectionName(void *elfFile, int i)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSectionName(elfFile, i)
            : elf64_getSectionName(elfFile, i);
 }
 
-uint32_t elf_getSectionFlags(
-    void const *elfFile,
-    int i)
+uint32_t
+elf_getSectionFlags(void *elfFile, int i)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSectionFlags(elfFile, i)
            : elf64_getSectionFlags(elfFile, i);
 }
 
-uint32_t elf_getSectionType(
-    void const *elfFile,
-    int i)
+uint32_t
+elf_getSectionType(void *elfFile, int i)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSectionType(elfFile, i)
            : elf64_getSectionType(elfFile, i);
 }
 
-uint64_t elf_getSectionSize(
-    void const *elfFile,
-    int i)
+uint64_t
+elf_getSectionSize(void *elfFile, int i)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSectionSize(elfFile, i)
            : elf64_getSectionSize(elfFile, i);
 }
 
-uint64_t elf_getSectionAddr(
-    void const *elfFile,
-    int i)
+uint64_t
+elf_getSectionAddr(void *elfFile, int i)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSectionAddr(elfFile, i)
            : elf64_getSectionAddr(elfFile, i);
 }
 
-void const *elf_getSection(
-    void const *elfFile,
-    int i)
+void *
+elf_getSection(void *elfFile, int i)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSection(elfFile, i)
            : elf64_getSection(elfFile, i);
 }
 
-void const *elf_getSectionNamed(
-    void const *elfFile,
-    char const *_str)
+void *
+elf_getSectionNamed(void *elfFile, char *_str)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getSectionNamed(elfFile, _str)
            : elf64_getSectionNamed(elfFile, _str);
 }
 
-void elf_getProgramHeaderInfo(
-    void const *elfFile,
-    uint16_t ph,
-    uint64_t *p_vaddr,
-    uint64_t *p_paddr,
-    uint64_t *p_filesz,
-    uint64_t *p_offset,
-    uint64_t *p_memsz)
+void
+elf_getProgramHeaderInfo(void *elfFile, uint16_t ph, uint64_t *p_vaddr,
+                         uint64_t *p_paddr, uint64_t *p_filesz, uint64_t *p_offset,
+                         uint64_t *p_memsz)
 {
     *p_vaddr = elf_getProgramHeaderVaddr(elfFile, ph);
     *p_paddr = elf_getProgramHeaderPaddr(elfFile, ph);
@@ -196,28 +177,26 @@ void elf_getProgramHeaderInfo(
     *p_memsz = elf_getProgramHeaderMemorySize(elfFile, ph);
 }
 
-uint64_t elf_getEntryPoint(
-    void const *elfFile)
+uint64_t
+elf_getEntryPoint(void *elfFile)
 {
-    return ISELF32(elfFile)
+    return ISELF32 (elfFile)
            ? elf32_getEntryPoint (elfFile)
            : elf64_getEntryPoint (elfFile);
 }
 
-int elf_getMemoryBounds(
-    void const *elfFile,
-    int phys,
-    uint64_t *min,
-    uint64_t *max)
+int
+elf_getMemoryBounds(void *elfFile, int phys, uint64_t *min, uint64_t *max)
 {
     uint64_t mem_min = UINT64_MAX;
     uint64_t mem_max = 0;
+    int i;
 
     if (elf_checkFile(elfFile) != 0) {
         return 0;
     }
 
-    for (unsigned int i = 0; i < elf_getNumProgramHeaders(elfFile); i++) {
+    for (i = 0; i < elf_getNumProgramHeaders(elfFile); i++) {
         uint64_t sect_min, sect_max;
 
         if (elf_getProgramHeaderMemorySize(elfFile, i) == 0) {
@@ -245,10 +224,8 @@ int elf_getMemoryBounds(
     return 1;
 }
 
-int elf_vaddrInProgramHeader(
-    void const *elfFile,
-    uint16_t ph,
-    uint64_t vaddr)
+int
+elf_vaddrInProgramHeader(void *elfFile, uint16_t ph, uint64_t vaddr)
 {
     uint64_t min = elf_getProgramHeaderVaddr(elfFile, ph);
     uint64_t max = min + elf_getProgramHeaderMemorySize(elfFile, ph);
@@ -259,10 +236,8 @@ int elf_vaddrInProgramHeader(
     }
 }
 
-uint64_t elf_vtopProgramHeader(
-    void const *elfFile,
-    uint16_t ph,
-        uint64_t vaddr)
+uint64_t
+elf_vtopProgramHeader(void *elfFile, uint16_t ph, uint64_t vaddr)
 {
     uint64_t ph_phys = elf_getProgramHeaderPaddr(elfFile, ph);
     uint64_t ph_virt = elf_getProgramHeaderVaddr(elfFile, ph);
@@ -273,15 +248,16 @@ uint64_t elf_vtopProgramHeader(
     return paddr;
 }
 
-int elf_loadFile(
-    void const *elfFile,
-    int phys)
+int
+elf_loadFile(void *elfFile, int phys)
 {
+    int i;
+
     if (elf_checkFile(elfFile) != 0) {
         return 0;
     }
 
-    for (unsigned int i = 0; i < elf_getNumProgramHeaders(elfFile); i++) {
+    for (i = 0; i < elf_getNumProgramHeaders(elfFile); i++) {
         /* Load that section */
         uint64_t dest, src;
         size_t len;

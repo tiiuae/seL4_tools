@@ -26,7 +26,6 @@ typedef uintptr_t vaddr_t;
 #define VISIBLE
 #endif
 #define UNUSED              __attribute__((unused))
-#define UNUSED_VARIABLE(x)  ((void)(x))
 #define ARRAY_SIZE(a)       (sizeof(a)/sizeof((a)[0]))
 #define NULL                ((void *)0)
 
@@ -69,14 +68,9 @@ extern char _archive_start_end[];
 void clear_bss(void);
 
 /* Load images. */
-int load_images(
-    struct image_info *kernel_info,
-    struct image_info *user_info,
-    unsigned int max_user_images,
-    unsigned int *num_images,
-    void *bootloader_dtb,
-    void **chosen_dtb,
-    size_t *chosen_dtb_size);
+void load_images(struct image_info *kernel_info, struct image_info *user_info,
+                 int max_user_images, int *num_images, void *bootloader_dtb, void **chosen_dtb,
+                 uint32_t *chosen_dtb_size);
 
 /* Platform functions */
 void platform_init(void);

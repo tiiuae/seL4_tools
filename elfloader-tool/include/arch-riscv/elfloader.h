@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 #pragma once
-
 #include <autoconf.h>
 #include <elfloader_common.h>
 
@@ -17,7 +16,7 @@ typedef void (*init_riscv_kernel_t)(paddr_t ui_p_reg_start,
                                     uint32_t dtb_size
 #if CONFIG_MAX_NUM_NODES > 1
                                     ,
-                                    word_t hart_id,
-                                    word_t core_id
+                                    uint64_t hart_id,
+                                    uint64_t core_id
 #endif
                                    );

@@ -171,13 +171,7 @@ file(
 )
 
 # We never want to give crt0_64.S to add_executable
-list(FILTER files EXCLUDE REGEX "src/arch-arm/32/crt0_64\.S")
-
-if(NOT ElfloaderMonitorHook)
-    # The CMake documentation is no clear on this, but it seems all variables
-    # of the form ${xxx} get evaluated first and then the regex is applied
-    list(FILTER files EXCLUDE REGEX "src/plat/${KernelPlatform}/monitor\.S")
-endif()
+list(FILTER files EXCLUDE REGEX src/arch-arm/32/crt0_64.S)
 
 if(KernelArchARM)
     file(
@@ -188,10 +182,6 @@ if(KernelArchARM)
     list(APPEND files ${arm_files})
 endif()
 
-# Prevent any global variables to be placed in *COM* instead of .bss.
-# This causes linker errors for duplicate symbol definitions correctly
-# and allows the _bss and _bss_end symbols to capture all .bss variables properly.
-add_compile_options(-fno-common)
 if(ElfloaderImageEFI)
     # We cannot control where EFI loads the image and so we must make it relocatable
     add_compile_options(-fpic)
@@ -264,62 +254,56 @@ endif()
 # Construct the ELF loader's payload.
 MakeCPIO(archive.o "${cpio_files}" CPIO_SYMBOL _archive_start)
 
-set(PLATFORM_HEADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen_headers")
-set(PLATFORM_INFO_H "${PLATFORM_HEADER_DIR}/platform_info.h")
-set(IMAGE_START_ADDR_H "${PLATFORM_HEADER_DIR}/image_start_addr.h")
-
-if(NOT "${IMAGE_START_ADDR}" STREQUAL "")
+# If our platform has a YAML description, create a C header file to include
+# information about the platform that is of interest to the ELF-loader, such as
+# a physical memory map.
+#
+# We also need to put the ELF-loader's payload in memory at a place that will be
+# out of the way of the kernel and user images that the elfloader extracts.  In
+# other words, we don't want the ELF-loader (with its payload) to clobber
+# itself.
+#
+# Formerly there was a complex set of conditionals driving a table of
+# hard-coded addresses.
+#
+# Now, instead, we compute a reasonable image start address, using a tool called
+# `shoehorn`, based on knowledge of how where and how big the extracted payloads
+# will be, obtained by a tool called `elf_sift`.
+set(PLATFORM_HEADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen_headers/")
+if(DEFINED platform_yaml)
+    set(PLATFORM_SIFT "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-tool/helpers/platform_sift.py")
+    set(PLATFORM_INFO_H "${PLATFORM_HEADER_DIR}/platform_info.h")
     add_custom_command(
-        OUTPUT "${PLATFORM_INFO_H}" "${IMAGE_START_ADDR_H}"
-        COMMAND
-            echo "#pragma once\\n\/* no platform YAML file available */" > "${PLATFORM_INFO_H}"
-        COMMAND
-            echo "#pragma once\\n#define IMAGE_START_ADDR ${IMAGE_START_ADDR}" >
-            "${IMAGE_START_ADDR_H}"
+        OUTPUT ${PLATFORM_INFO_H}
+        COMMAND ${PLATFORM_SIFT} --emit-c-syntax ${platform_yaml} > ${PLATFORM_INFO_H}
         VERBATIM
+        DEPENDS ${platform_yaml} ${PLATFORM_SIFT}
     )
+    set_property(SOURCE src/common.c PROPERTY OBJECT_DEPENDS ${PLATFORM_INFO_H})
 
-elseif(NOT DEFINED platform_yaml)
-
-    message(FATAL_ERROR "IMAGE_START_ADDR not set and 'platform_yaml' undefined")
-
-else()
-
-    # The following does two things. These commands are put together as for some weird
-    # reason, CMake does not execute the first command if it's by itself. This could be
-    # due to the CMakeLists.txt file in the capDL repository also invoking a similar command
-    # causing CMake to think that the first command with PLATFORM_SIFT is unnecessary.
-    set(CMAKE_TOOL_HELPERS_DIR "${CMAKE_CURRENT_LIST_DIR}/../cmake-tool/helpers")
-    set(PLATFORM_SIFT "${CMAKE_TOOL_HELPERS_DIR}/platform_sift.py")
-    set(ELF_SIFT "${CMAKE_TOOL_HELPERS_DIR}/elf_sift.py")
-    set(SHOEHORN "${CMAKE_TOOL_HELPERS_DIR}/shoehorn.py")
+    # Construct the `shoehorn` command line.
     set(ARCHIVE_O "${CMAKE_CURRENT_BINARY_DIR}/archive.o")
-    add_custom_command(
-        OUTPUT "${IMAGE_START_ADDR_H}" "${PLATFORM_INFO_H}"
-        COMMAND
-            # Take the platform's YAML description can create a C header file with
-            # information of interest to the ELF-loader, e.g. a physical memory map. We
-            # must put the ELF-loader's payload in memory at a place that will be out of
-            # the way of the kernel and user images that are extracted. In other words,
-            # we don't want the ELF-loader (with its payload) to clobber itself.
-            "${PLATFORM_SIFT}"
-            --emit-c-syntax "${platform_yaml}" > "${PLATFORM_INFO_H}"
-        COMMAND
-            # The `shoehorn` tool computes a reasonable image start address. It calls
-            # `elf_sift` to obtain details about where the extracted payloads will be
-            # and how big they are.
-            "${SHOEHORN}" "${platform_yaml}" "${ARCHIVE_O}" > "${IMAGE_START_ADDR_H}"
-        VERBATIM
-        DEPENDS
-            # First command's dependencies
-            "${platform_yaml}" "${PLATFORM_SIFT}"
-            # Second command's dependencies
-            "${ARCHIVE_O}"
-            "${platform_yaml}"
-            "${ELF_SIFT}"
-            "${SHOEHORN}"
-    )
+    # `shoehorn` calls `elf_sift`, so we'll need to depend on it.
+    set(ELF_SIFT "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-tool/helpers/elf_sift.py")
+    set(SHOEHORN "${CMAKE_CURRENT_SOURCE_DIR}/../cmake-tool/helpers/shoehorn.py")
 
+    set(IMAGE_START_ADDR_H "${PLATFORM_HEADER_DIR}/image_start_addr.h")
+    set(SHOEHORN_COMMAND "${SHOEHORN} ${platform_yaml} ${ARCHIVE_O} > ${IMAGE_START_ADDR_H}")
+    if(NOT "${IMAGE_START_ADDR}" STREQUAL "")
+        file(WRITE ${IMAGE_START_ADDR_H} "#define IMAGE_START_ADDR ${IMAGE_START_ADDR}")
+    else()
+        add_custom_command(
+            OUTPUT ${IMAGE_START_ADDR_H}
+            COMMAND sh -c "${SHOEHORN_COMMAND}"
+            VERBATIM
+            DEPENDS archive.o ${ELF_SIFT} ${SHOEHORN}
+        )
+    endif()
+else()
+    message(
+        FATAL_ERROR
+            "no image start address computed for platform; use platform YAML file ${platform_yaml} or replace this diagnostic with a CMake custom command to generate a file \"${IMAGE_START_ADDR_H}\" that hard-codes it; the same goes for \"${PLATFORM_INFO_H}\""
+    )
 endif()
 
 if(DEFINED KernelDTBPath)

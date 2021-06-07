@@ -1,7 +1,5 @@
 /*
  * Copyright Linux Kernel team
- * Copyright 2020, HENSOLDT Cyber GmbH
- *
  * SPDX-License-Identifier: GPL-2.0-only
  *
  * The code in here is loosely derived from the Linux kernel
@@ -87,7 +85,6 @@ static int smp_imx6_init(UNUSED struct elfloader_device *dev,
 
 static const struct dtb_match_table smp_imx6_matches[] = {
     { .compatible = "fsl,imx6q-src" },
-    { .compatible = "fsl,imx6sx-src" },
     { .compatible = NULL /* sentinel */ },
 };
 
