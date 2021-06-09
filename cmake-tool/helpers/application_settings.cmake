@@ -1,5 +1,6 @@
 #
 # Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+# Copyright 2020, HENSOLDT Cyber GmbH
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
@@ -8,8 +9,8 @@ cmake_minimum_required(VERSION 3.8.2)
 include_guard(GLOBAL)
 
 function(ApplyData61ElfLoaderSettings kernel_platform kernel_sel4_arch)
-    set(binary_list "tx1;hikey;odroidc2;imx8mq-evk;rockpro64;zynqmp;imx8mm-evk;hifive;tx2")
-    set(efi_list "tk1")
+    set(binary_list "tx1;hikey;odroidc2;imx8mq-evk;zynqmp;imx8mm-evk;hifive;tx2")
+    set(efi_list "tk1;rockpro64")
     set(uimage_list "am335x")
     if(
         ${kernel_platform} IN_LIST efi_list
@@ -18,8 +19,12 @@ function(ApplyData61ElfLoaderSettings kernel_platform kernel_sel4_arch)
         set(ElfloaderImage "efi" CACHE STRING "" FORCE)
     elseif(${kernel_platform} IN_LIST uimage_list)
         set(ElfloaderImage "uimage" CACHE STRING "" FORCE)
-    elseif(${kernel_platform} STREQUAL "rpi3" AND ${kernel_sel4_arch} STREQUAL "aarch64")
+        #rpi3
+    elseif(${kernel_platform} STREQUAL "bcm2837" AND ${kernel_sel4_arch} STREQUAL "aarch64")
         set(ElfloaderImage "binary" CACHE STRING "" FORCE)
+        #rpi4
+    elseif(${kernel_platform} STREQUAL "bcm2711" AND ${kernel_sel4_arch} STREQUAL "aarch64")
+        set(ElfloaderImage "efi" CACHE STRING "" FORCE)
     elseif(${kernel_platform} IN_LIST binary_list)
         set(ElfloaderImage "binary" CACHE STRING "" FORCE)
     else()
@@ -44,13 +49,20 @@ function(ApplyData61ElfLoaderSettings kernel_platform kernel_sel4_arch)
     if(KernelPlatformZynqmp AND KernelSel4ArchAarch32)
         set(IMAGE_START_ADDR 0x8000000 CACHE INTERNAL "" FORCE)
     endif()
+    if(KernelPlatformSpike AND KernelSel4ArchRiscV32)
+        set(IMAGE_START_ADDR 0x80400000 CACHE INTERNAL "" FORCE)
+    endif()
 endfunction()
 
-function(ApplyCommonSimulationSettings kernel_arch)
-    if("${kernel_arch}" STREQUAL "x86")
+function(ApplyCommonSimulationSettings kernel_sel4_arch)
+    if("${kernel_sel4_arch}" STREQUAL "x86_64" OR "${kernel_sel4_arch}" STREQUAL "ia32")
         # Generally we cannot simulate some more recent features
         set(KernelSupportPCID OFF CACHE BOOL "" FORCE)
-        set(KernelFSGSBase msr CACHE STRING "" FORCE)
+        if("${kernel_sel4_arch}" STREQUAL "ia32")
+            set(KernelFSGSBase gdt CACHE STRING "" FORCE)
+        else()
+            set(KernelFSGSBase msr CACHE STRING "" FORCE)
+        endif()
         set(KernelIOMMU OFF CACHE BOOL "" FORCE)
         set(KernelFPU FXSAVE CACHE STRING "" FORCE)
     endif()
@@ -81,13 +93,8 @@ function(ApplyCommonReleaseVerificationSettings release verification)
 endfunction()
 
 # Try and map a PLATFORM value to a valid kernel platform and architecture
-# setting based on some established conventions:
-#  - Any previous value taken by KernelARMPlatform
-#  - Any value accepted by KernelPlatform
-#  - x86_64 and ia32 map to pc99
-#
-# Additionally use the following boolean configs to indicate which seL4 arch
-# to select:
+# variables. Additionally, the following boolean configs can be set to indicate
+# which seL4 arch to select:
 #  - aarch32: ARM, AARCH32, AARCH32HF
 #  - arm_hyp: ARM_HYP
 #  - aarch64: AARCH64
@@ -96,108 +103,176 @@ endfunction()
 #
 # Calling this function will result in forced updates to the cache.
 function(correct_platform_strings)
-    set(_REWRITE ON)
-    set(
-        correct_platform_strings_platform_aliases
-        sabre
-        wandq
-        kzm
-        rpi3
-        exynos5250
-        exynos5410
-        exynos5422
-        am335x-boneblack
-        am335x-boneblue
-        x86_64
-        ia32
-    )
-    set(
-        correct_platform_strings_platform_aliases ${correct_platform_strings_platform_aliases}
-        CACHE INTERNAL ""
-    )
-    if("${PLATFORM}" STREQUAL "sabre")
-        set(KernelPlatform imx6 CACHE STRING "" FORCE)
-        set(KernelARMPlatform sabre CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "wandq")
-        set(KernelPlatform imx6 CACHE STRING "" FORCE)
-        set(KernelARMPlatform wandq CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "kzm")
-        set(KernelPlatform imx31 CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "rpi3")
-        set(KernelPlatform bcm2837 CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "exynos5250")
-        set(KernelPlatform exynos5 CACHE STRING "" FORCE)
-        set(KernelARMPlatform exynos5250 CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "exynos5410")
-        set(KernelPlatform exynos5 CACHE STRING "" FORCE)
-        set(KernelARMPlatform exynos5410 CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "exynos5422")
-        set(KernelPlatform exynos5 CACHE STRING "" FORCE)
-        set(KernelARMPlatform exynos5422 CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "am335x-boneblack")
-        set(KernelPlatform am335x CACHE STRING "" FORCE)
-        set(KernelARMPlatform am335x-boneblack CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "am335x-boneblue")
-        set(KernelPlatform am335x CACHE STRING "" FORCE)
-        set(KernelARMPlatform am335x-boneblue CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "x86_64")
-        set(KernelPlatform pc99 CACHE STRING "" FORCE)
-        set(KernelSel4Arch x86_64 CACHE STRING "" FORCE)
-    elseif("${PLATFORM}" STREQUAL "ia32")
-        set(KernelPlatform pc99 CACHE STRING "" FORCE)
-        set(KernelSel4Arch ia32 CACHE STRING "" FORCE)
-    elseif(NOT "${PLATFORM}" STREQUAL "")
-        set(KernelPlatform ${PLATFORM} CACHE STRING "" FORCE)
-        set(_REWRITE OFF)
-    else()
-        set(_REWRITE OFF)
-    endif()
-    if(_REWRITE AND (NOT correct_platform_strings_no_print))
-        message("correct_platform_strings: Attempting to correct PLATFORM: ${PLATFORM}
-            to new valid KernelPlatform: ${KernelPlatform}")
-        if("${KernelPlatform}" STREQUAL pc99)
-            message("                         KernelSel4Arch: ${KernelSel4Arch}")
+
+    if(KernelX86Sel4Arch)
+        # this used to be a common mechanism how x86 architectures were
+        # selected. It's deprecated now and PLATFORM should be used instead. As
+        # of Nov/2020, we don't make this an error to give everybody a chance
+        # to update their scripts.
+        if("${PLATFORM}" STREQUAL "")
+            if(NOT correct_platform_strings_no_print)
+                message(
+                    DEPRECATION
+                        "setting PLATFORM from deprecated KernelX86Sel4Arch: ${KernelX86Sel4Arch}"
+                )
+            endif()
+            set(PLATFORM "${KernelX86Sel4Arch}")
+        elseif("${PLATFORM}" STREQUAL "${KernelX86Sel4Arch}")
+            if(NOT correct_platform_strings_no_print)
+                message(DEPRECATION "KernelX86Sel4Arch is deprecated, use PLATFORM only")
+            endif()
         else()
-            message("                      KernelARMPlatform: ${KernelARMPlatform}")
+            message(
+                FATAL_ERROR
+                    "PLATFORM=${PLATFORM} does not match KernelX86Sel4Arch=${KernelX86Sel4Arch}"
+            )
+        endif()
+    elseif(KernelArmSel4Arch)
+        # this has never been widely in use, so we stop supporting it
+        message(FATAL_ERROR "KernelArmSel4Arch is no longer supported, use PLATFROM")
+    elseif(KernelRiscVSel4Arch)
+        # this should not have been in use at all
+        message(FATAL_ERROR "KernelRiscVSel4Arch is no longer supported, use PLATFROM")
+    endif()
+
+    set(
+        platform_aliases
+        # The elements of this list are:
+        #      "-"+<name of architecture #1 specific platform variable>
+        #      <chip family>:<board_1>,<board_2>...
+        #      <chip family>:<board_1>,<board_2>...
+        #      ...
+        #      "-"+<name of architecture #2 specific platform variable>
+        #      <chip family>:<board_1>,<board_2>...
+        #      ...
+        #  where this function will try to match PLATFORM against <board_n> and
+        #  then set:
+        #      KernelPlatform=<chip family>
+        #      <platform variable>=<board_n>
+        # Note that <board_n> must be a unique name, as the first match will be
+        # used. If there was no match for any board the function will set:
+        #     KernelPlatform=${PLATFORM}
+        # and leave all further setup to the architecture/platform specific
+        # configuration to <sel4 kernel>/src/plat/*/config.cmake
+        #
+        "-KernelARMPlatform"
+        "imx6:sabre,wandq,nitrogen6sx"
+        "imx31:kzm"
+        "bcm2837:rpi3"
+        "bcm2711:rpi4"
+        "exynos5:exynos5250,exynos5410,exynos5422"
+        "am335x:am335x-boneblack,am335x-boneblue"
+        "-KernelSel4Arch"
+        "pc99:x86_64,ia32"
+    )
+
+    set(all_boards "")
+    set(block_kernel_var "")
+    set(kernel_var "")
+
+    foreach(item IN LISTS platform_aliases)
+
+        if(item MATCHES "^-(.*)$")
+            set(block_kernel_var "${CMAKE_MATCH_1}")
+            continue()
+        endif()
+
+        if(NOT block_kernel_var)
+            message(
+                FATAL_ERROR
+                    "platform_aliases must set architecture specific kernel platform variable first"
+            )
+        endif()
+
+        if(NOT item MATCHES "^(.*):(.*)$")
+            message(FATAL_ERROR "invalid line in platform_aliases: ${item}")
+        endif()
+
+        set(plat "${CMAKE_MATCH_1}")
+
+        string(
+            REPLACE
+                ","
+                ";"
+                item_board_list
+                "${CMAKE_MATCH_2}"
+        )
+
+        # remember board alias names, we need to build a complete list
+        list(APPEND all_boards "${item_board_list}")
+
+        if(kernel_var OR ("${PLATFORM}" STREQUAL "") OR (NOT "${PLATFORM}" IN_LIST item_board_list))
+            continue()
+        endif()
+
+        if(KernelPlatform AND (NOT "${KernelPlatform}" STREQUAL "${plat}"))
+            message(
+                FATAL_ERROR
+                    "config mismatch, wont overwrite KernelPlatform=${KernelPlatform} with ${plat}"
+            )
+        endif()
+        set(KernelPlatform "${plat}" CACHE STRING "" FORCE)
+
+        if(${block_kernel_var} AND (NOT "${${block_kernel_var}}" STREQUAL "${PLATFORM}"))
+            message(
+                FATAL_ERROR
+                    "config mismatch, wont overwrite ${block_kernel_var}=${${block_kernel_var}} with ${PLATFORM}"
+            )
+        endif()
+        set(kernel_var "${block_kernel_var}")
+        set(${kernel_var} "${PLATFORM}" CACHE STRING "" FORCE)
+
+    endforeach()
+
+    if(NOT kernel_var)
+        set(KernelPlatform "${PLATFORM}" CACHE STRING "" FORCE)
+    endif()
+
+    # declare a special variable that some CMake files expect to hold a list of
+    # all board alias names from the "database" above
+    set(correct_platform_strings_platform_aliases "${all_boards}" CACHE INTERNAL "")
+
+    # printing a message about the adaption is optional. When CMake is
+    # invoked multiple times to get a stable configuration, we print this
+    # for the first run only.
+    if(NOT correct_platform_strings_no_print)
+        message(STATUS "Set platform details from PLATFORM=${PLATFORM}")
+        message(STATUS "  KernelPlatform: ${KernelPlatform}")
+        if(kernel_var)
+            message(STATUS "  ${kernel_var}: ${${kernel_var}}")
         endif()
     endif()
+
     set(_REWRITE ON)
 
     if(ARM OR AARCH32 OR AARCH32HF)
-        if(
-            ARM_HYP
-            OR ("${KernelSel4Arch}" STREQUAL arm_hyp)
-            OR ("${KernelArmSel4Arch}" STREQUAL arm_hyp)
-        )
-            set(KernelSel4Arch arm_hyp CACHE STRING "" FORCE)
+        # "arm_hyp" was needed as a new kernel architecture long time ago when
+        # the scripts that produced a kernel that was given to L4V could only
+        # handle changing the kernel architecture. It was used to mean
+        # "aarch32 + hyp extensions". Now it would be possible to completely
+        # remove it and follow the same pattern as aarch64.
+        if(ARM_HYP OR ("${KernelSel4Arch}" STREQUAL "arm_hyp"))
+            set(KernelSel4Arch "arm_hyp" CACHE STRING "" FORCE)
         else()
-            set(KernelSel4Arch aarch32 CACHE STRING "" FORCE)
+            set(KernelSel4Arch "aarch32" CACHE STRING "" FORCE)
         endif()
     elseif(AARCH64)
-        set(KernelSel4Arch aarch64 CACHE STRING "" FORCE)
+        set(KernelSel4Arch "aarch64" CACHE STRING "" FORCE)
     elseif(RISCV64)
-        set(KernelSel4Arch riscv64 CACHE STRING "" FORCE)
+        set(KernelSel4Arch "riscv64" CACHE STRING "" FORCE)
     elseif(RISCV32)
-        set(KernelSel4Arch riscv32 CACHE STRING "" FORCE)
+        set(KernelSel4Arch "riscv32" CACHE STRING "" FORCE)
     else()
         set(_REWRITE OFF)
     endif()
     if(_REWRITE AND (NOT correct_platform_strings_no_print))
-        message(
-            "correct_platform_strings: Based on toolchain, setting KernelSel4Arch: ${KernelSel4Arch}"
-        )
-    endif()
-
-    # This is a common mechanism for how x86 architectures were selected
-    if("${KernelX86Sel4Arch}" STREQUAL ia32)
-        set(KernelSel4Arch ia32 CACHE STRING "" FORCE)
-    elseif("${KernelX86Sel4Arch}" STREQUAL x86_64)
-        set(KernelSel4Arch x86_64 CACHE STRING "" FORCE)
+        message(STATUS "Setting from flags KernelSel4Arch: ${KernelSel4Arch}")
     endif()
 
     # Only print out these info messages on first initialisation
     # otherwise the ccache gets interrupted with output everytime it is used.
-    # The ccache also has a mechanism for showing what config options get chagned
-    # after a configuration anyway so the user will still be informed.
+    # The ccache also has a mechanism for showing what config options get
+    # changed after a configuration anyway so the user will still be informed.
     set(correct_platform_strings_no_print ON CACHE INTERNAL "")
+
 endfunction()

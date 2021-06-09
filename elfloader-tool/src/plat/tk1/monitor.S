@@ -4,8 +4,13 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
+
 #include <autoconf.h>
 #include <elfloader/gen_config.h>
+
+#ifndef CONFIG_ARM_MONITOR_HOOK
+#error This file is for CONFIG_ARM_MONITOR_HOOK only
+#endif
 
 #define VECTOR_BASE     0xa7f00000
 #define STACK_TOP       (VECTOR_BASE + (1 << 20) - 0x10)

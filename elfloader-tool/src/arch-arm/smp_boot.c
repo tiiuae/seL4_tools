@@ -22,8 +22,10 @@ static volatile int non_boot_lock = 0;
 
 void arm_disable_dcaches(void);
 
-extern void *dtb;
+extern void const *dtb;
 extern uint32_t dtb_size;
+
+WEAK void non_boot_init(void) {}
 
 /* Entry point for all CPUs other than the initial. */
 void non_boot_main(void)
@@ -37,6 +39,9 @@ void non_boot_main(void)
         cpu_idle();
 #endif
     }
+
+    /* Initialise any platform-specific per-core state */
+    non_boot_init();
 
 #ifndef CONFIG_ARM_HYPERVISOR_SUPPORT
     if (is_hyp_mode()) {
@@ -60,8 +65,8 @@ void non_boot_main(void)
     abort();
 }
 
-/* TODO: convert imx7 to driver model and remove __attribute__((weak)) */
-void __attribute__((weak)) init_cpus(void)
+/* TODO: convert imx7 to driver model and remove WEAK */
+WEAK void init_cpus(void)
 {
     /*
      * first, figure out which CPU we're booting on.

@@ -1,5 +1,6 @@
 /*
  * Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+ * Copyright 2021, HENSOLDT Cyber
  *
  * SPDX-License-Identifier: GPL-2.0-only
  */
@@ -24,13 +25,15 @@
 /* Maximum alignment we need to preserve when relocating (64K) */
 #define MAX_ALIGN_BITS (14)
 
+#ifdef CONFIG_IMAGE_EFI
 ALIGN(BIT(PAGE_BITS)) VISIBLE
 char core_stack_alloc[CONFIG_MAX_NUM_NODES][BIT(PAGE_BITS)];
+#endif
 
 struct image_info kernel_info;
 struct image_info user_info;
-void *dtb;
-uint32_t dtb_size;
+void const *dtb;
+size_t dtb_size;
 
 extern void finish_relocation(int offset, void *_dynamic, unsigned int total_offset);
 void continue_boot(int was_relocated);
@@ -84,7 +87,9 @@ void relocate_below_kernel(void)
     /* call into assembly to do the finishing touches */
     finish_relocation(offset, _DYNAMIC, new_base);
 #else
-    printf("The ELF loader does not support relocating itself. You probably need to move the kernel window higher, or the load address lower.\n");
+    printf("ERROR: The ELF loader does not support relocating itself. You"
+           " probably need to move the kernel window higher, or the load"
+           " address lower.\n");
     abort();
 #endif
 }
@@ -96,50 +101,37 @@ void relocate_below_kernel(void)
  */
 void main(UNUSED void *arg)
 {
-    int num_apps;
-
     void *bootloader_dtb = NULL;
 
+    /* initialize platform to a state where we can print to a UART */
     initialise_devices();
+    platform_init();
 
-#ifdef CONFIG_IMAGE_UIMAGE
-    if (arg) {
-        uint32_t magic = *(uint32_t *)arg;
-        /*
-         * This might happen on ancient bootloaders which
-         * still think Linux wants atags instead of a
-         * device tree.
-         */
-        if (magic != DTB_MAGIC) {
-            printf("Bootloader did not supply a valid device tree!\n");
-            arg = NULL;
-        }
+    /* Print welcome message. */
+    printf("\nELF-loader started on ");
+    print_cpuid();
+    printf("  paddr=[%p..%p]\n", _text, _end - 1);
+
+#if defined(CONFIG_IMAGE_UIMAGE)
+
+    /* U-Boot passes a DTB. Ancient bootloaders may pass atags. When booting via
+     * bootelf argc is NULL.
+     */
+    if (arg && (DTB_MAGIC == *(uint32_t *)arg)) {
+        bootloader_dtb = arg;
     }
-    bootloader_dtb = arg;
-#else
-    bootloader_dtb = NULL;
-#endif
 
-#ifdef CONFIG_IMAGE_EFI
+#elif defined(CONFIG_IMAGE_EFI)
+
     if (efi_exit_boot_services() != EFI_SUCCESS) {
-        printf("Unable to exit UEFI boot services!\n");
+        printf("ERROR: Unable to exit UEFI boot services!\n");
         abort();
     }
 
     bootloader_dtb = efi_get_fdt();
+
 #endif
 
-    /* Print welcome message. */
-    platform_init();
-    printf("\nELF-loader started on ");
-    print_cpuid();
-
-    printf("  paddr=[%p..%p]\n", _text, _end - 1);
-
-    /*
-     * U-Boot will either pass us a DTB, or (if we're being booted via bootelf)
-     * pass '0' in argc.
-     */
     if (bootloader_dtb) {
         printf("  dtb=%p\n", dtb);
     } else {
@@ -147,12 +139,19 @@ void main(UNUSED void *arg)
     }
 
     /* Unpack ELF images into memory. */
-    load_images(&kernel_info, &user_info, 1, &num_apps, bootloader_dtb, &dtb, &dtb_size);
-    if (num_apps != 1) {
-        printf("No user images loaded!\n");
+    unsigned int num_apps = 0;
+    int ret = load_images(&kernel_info, &user_info, 1, &num_apps,
+                          bootloader_dtb, &dtb, &dtb_size);
+    if (0 != ret) {
+        printf("ERROR: image loading failed\n");
         abort();
     }
 
+    if (num_apps != 1) {
+        printf("ERROR: expected to load just 1 app, actually loaded %u apps\n",
+               num_apps);
+        abort();
+    }
     /*
      * We don't really know where we've been loaded.
      * It's possible that EFI loaded us in a place
@@ -161,7 +160,7 @@ void main(UNUSED void *arg)
      * Make sure this is not the case.
      */
     relocate_below_kernel();
-    printf("Relocation failed, aborting.\n");
+    printf("ERROR: Relocation failed, aborting!\n");
     abort();
 }
 
@@ -210,11 +209,9 @@ void continue_boot(int was_relocated)
         arm_enable_mmu();
     }
 
-    /* Enter kernel. */
+    /* Enter kernel. The UART may no longer be accessible here. */
     if ((uintptr_t)uart_get_mmio() < kernel_info.virt_region_start) {
         printf("Jumping to kernel-image entry point...\n\n");
-    } else {
-        /* Our serial port is no longer accessible */
     }
 
     ((init_arm_kernel_t)kernel_info.virt_entry)(user_info.phys_region_start,
@@ -222,6 +219,6 @@ void continue_boot(int was_relocated)
                                                 user_info.virt_entry, (paddr_t)dtb, dtb_size);
 
     /* We should never get here. */
-    printf("Kernel returned back to the elf-loader.\n");
+    printf("ERROR: Kernel returned back to the ELF Loader\n");
     abort();
 }

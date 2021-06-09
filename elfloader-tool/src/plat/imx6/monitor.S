@@ -1,13 +1,25 @@
 /*
  * Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+ * Copyright 2020, HENSOLDT Cyber GmbH
  *
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
+
 #include <autoconf.h>
 #include <elfloader/gen_config.h>
 
+#ifndef CONFIG_ARM_MONITOR_HOOK
+#error This file is for CONFIG_ARM_MONITOR_HOOK only
+#endif
+
+#if defined(CONFIG_PLAT_IMX6DQ)
 #define VECTOR_BASE     0x10000000
+#elif defined(CONFIG_PLAT_IMX6SX)
+#define VECTOR_BASE     0x80000000
+#else
+#error "unknown i.MX6 SOC"
+#endif
 #define STACK_TOP       (VECTOR_BASE + (1 << 12) - 0x10)
 
 /* vector table for monitor mode
