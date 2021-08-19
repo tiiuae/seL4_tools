@@ -16,6 +16,20 @@
  */
 #define MAX_INT_BUFF_SIZE  80
 
+void tcu_console_putchar(const char ch);
+
+void tcu_console_putchar(const char ch)
+{
+	volatile uint32_t *txp = ((uint32_t *) 0x0c168000);
+
+        while (*txp & 0x80000000);
+
+        *txp = ((uint32_t) ch) |
+                (0x81 << 24);
+
+        while (*txp & 0x80000000);
+}
+
 /*
  * Function to process a simple character. "payload" may point
  * to arbitrary state needed by the "write_char" function.
@@ -220,6 +234,7 @@ static void vxprintf(
 /*
  * Simple printf/puts implementation.
  */
+extern void tcu_console_putchar(const char ch);
 
 typedef struct {
     unsigned int cnt;
@@ -231,7 +246,7 @@ static void arch_write_char(
 {
     arch_write_char_ctx_t *ctx = payload;
 
-    plat_console_putchar(c);
+    tcu_console_putchar(c);
     /* do do not really know what plat_console_putchar() does effectively, all
      * we do know is that we have given it one character.
      */
