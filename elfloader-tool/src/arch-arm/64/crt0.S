@@ -6,7 +6,7 @@
 
 #include <autoconf.h>
 #include <elfloader/gen_config.h>
-#ifdef CONFIG_IMAGE_BINARY
+#ifdef CONFIG_IMAGE_ANDROID
 #include <image_start_addr.h>
 #endif
 
@@ -14,12 +14,15 @@
 
 .extern main
 
+.extern dump_hello
+
 .section ".text.start"
 BEGIN_FUNC(_start)
+//    bl dump_hello
     adrp    x19, core_stack_alloc
     add     x19, x19, #0xff0
     mov     sp, x19
-#ifdef CONFIG_IMAGE_BINARY
+#ifdef CONFIG_IMAGE_ANDROID
     stp     x0, x1, [sp, #-16]!
     bl      clear_bss
     /*
@@ -38,10 +41,11 @@ BEGIN_FUNC(_start)
     br      x2
 1:
 #endif
+//    bl dump_hello
     b       main
 END_FUNC(_start)
 
-#ifdef CONFIG_IMAGE_BINARY
+#ifdef CONFIG_IMAGE_ANDROID
 BEGIN_FUNC(fixup_image_base)
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
