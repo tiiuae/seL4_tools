@@ -17,6 +17,15 @@ INSERT BEFORE .hash;
 
 SECTIONS
 {
+   . = KERNEL_START_ADDR;
+   .header :
+   {
+       *(.text.header)
+   }
+}
+
+SECTIONS
+{
     . = IMAGE_START_ADDR;
     _text = .;
     .start :
