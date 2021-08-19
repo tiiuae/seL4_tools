@@ -29,6 +29,9 @@ mark_as_advanced(TLS_ROOTSERVER)
 
 find_file(UIMAGE_TOOL make-uimage PATHS "${CMAKE_CURRENT_LIST_DIR}" CMAKE_FIND_ROOT_PATH_BOTH)
 mark_as_advanced(UIMAGE_TOOL)
+find_file(BOOTIMG_TOOL make-bootimg PATHS "${CMAKE_CURRENT_LIST_DIR}" CMAKE_FIND_ROOT_PATH_BOTH)
+mark_as_advanced(BOOTIMG_TOOL)
+
 include(CMakeDependentOption)
 cmake_dependent_option(UseRiscVOpenSBI "Use OpenSBI." ON DEPENDS "KernelArchRiscV" OFF)
 
@@ -196,6 +199,14 @@ function(DeclareRootserver rootservername)
                 COMMAND
                     ${UIMAGE_TOOL} ${CMAKE_OBJCOPY} ${CMAKE_READELF} ${elf_target_file}
                     ${UIMAGE_ARCH} ${IMAGE_NAME}
+                DEPENDS ${elf_target_file} elfloader
+            )
+        elseif("${ElfloaderImage}" STREQUAL "bootimg")
+	    # Construct payload for Android.
+	    add_custom_command(
+		OUTPUT "${IMAGE_NAME}"
+                COMMAND
+		    ${BOOTIMG_TOOL} ${CMAKE_OBJCOPY} ${elf_target_file} ${IMAGE_NAME}
                 DEPENDS ${elf_target_file} elfloader
             )
         else()

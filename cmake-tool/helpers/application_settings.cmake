@@ -13,6 +13,7 @@ function(ApplyData61ElfLoaderSettings kernel_platform kernel_sel4_arch)
     set(binary_list "tx1;hikey;odroidc2;odroidc4;imx8mq-evk;imx8mm-evk;hifive;tqma8xqp1gb")
     set(efi_list "tk1;rockpro64;quartz64")
     set(uimage_list "tx2;am335x")
+    set(android_list "xaviernx")
     if(
         ${kernel_platform} IN_LIST efi_list
         OR (${kernel_platform} STREQUAL "hikey" AND ${kernel_sel4_arch} STREQUAL "aarch64")
@@ -20,6 +21,8 @@ function(ApplyData61ElfLoaderSettings kernel_platform kernel_sel4_arch)
         set(ElfloaderImage "efi" CACHE STRING "" FORCE)
     elseif(${kernel_platform} IN_LIST uimage_list)
         set(ElfloaderImage "uimage" CACHE STRING "" FORCE)
+    elseif(${kernel_platform} IN_LIST android_list)
+	set(ElfloaderImage "bootimg" CACHE STRING "" FORCE)
         #rpi3
     elseif(${kernel_platform} STREQUAL "bcm2837" AND ${kernel_sel4_arch} STREQUAL "aarch64")
         set(ElfloaderImage "binary" CACHE STRING "" FORCE)
