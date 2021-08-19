@@ -225,6 +225,8 @@ sufficiently-large memory region.
 
     sys.stdout.write('#define IMAGE_START_ADDR 0x{load:x}\n'
                      .format(load=image_start_address))
+    sys.stdout.write('#define KERNEL_START_ADDR 0x{load:x}\n'
+                     .format(load=kernel_start))
     return 0
 
 

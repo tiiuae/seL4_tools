@@ -30,6 +30,7 @@ config_choice(
     "binary;ElfloaderImageBinary;IMAGE_BINARY;KernelArchARM OR KernelArchRiscV"
     "efi;ElfloaderImageEFI;IMAGE_EFI;KernelArchARM"
     "uimage;ElfloaderImageUimage;IMAGE_UIMAGE;KernelArchARM"
+    "bootimg;ElfloaderImageBootimg;IMAGE_ANDROID;KernelArchARM"
 )
 
 config_choice(
@@ -227,6 +228,15 @@ if(ElfloaderImageEFI)
 else()
     add_compile_options(-fno-pic)
     add_compile_options(-fno-pie)
+endif()
+
+if(ElfloaderImageBootimg)
+    list(
+	APPEND
+	    files
+	    src/binaries/android/start-${KernelArch}.S
+    )
+    set_property(SOURCE src/binaries/android/start-${KernelArch}.S PROPERTY OBJECT_DEPENDS ${IMAGE_START_ADDR_H})
 endif()
 
 # Sort files to make build reproducible
