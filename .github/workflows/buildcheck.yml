@@ -1,0 +1,14 @@
+name: Check Build on PR
+
+on:
+  pull_request_target:
+    types: [opened, reopened, edited, labeled]
+
+jobs:
+  Manifest-Generator:    
+    uses: tiiuae/tii_sel4_build/.github/workflows/pr.yml@tii/development
+    with: 
+      REPO_OVERRIDE: ${{ github.event.pull_request.head.repo.full_name }}:${{ github.head_ref }}
+      BRANCH_OVERRIDE: ${{ github.head_ref }}
+    secrets:
+      CI_SSH_KEY: ${{ secrets.CI_SSH_KEY}}
